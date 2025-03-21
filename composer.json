@@ -1,0 +1,23 @@
+{
+  "name": "googlyblox/gog-claim",
+  "description": "A PHP script to automatically claim free games on GOG.com",
+  "type": "project",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "GooglyBlox",
+      "homepage": "https://github.com/GooglyBlox"
+    }
+  ],
+  "require": {
+    "php": ">=7.4",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "guzzlehttp/guzzle": "^7.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "GogAutoClaim\\": "src/"
+    }
+  }
+}
