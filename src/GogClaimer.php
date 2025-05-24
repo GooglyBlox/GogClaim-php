@@ -61,6 +61,13 @@ class GogClaimer
                 return true;
             }
 
+            // Store game details before attempting claim to ensure we have them for notification
+            $gameDetailsBeforeClaim = [
+                'name' => $this->gameName,
+                'url' => $this->gameUrl,
+                'image' => $this->gameImage
+            ];
+
             $shouldAttemptClaim = !$this->testMode;
             if ($this->testMode) {
                 $statusData = $this->getGiveawayStatusData();
@@ -74,13 +81,26 @@ class GogClaimer
                 }
             }
 
-
             $claimed = $shouldAttemptClaim ? $this->claimGiveaway() : true; 
 
             if ($claimed) {
-                // Ensure game details are available for notification, especially in test mode simulation
-                if (is_null($this->gameName) || is_null($this->gameUrl) || is_null($this->gameImage)) {
-                    $this->logger->debug("Game details missing, re-checking page/API for notification.");
+                // Restore game details if they were lost during claim process
+                if (is_null($this->gameName) && !is_null($gameDetailsBeforeClaim['name'])) {
+                    $this->gameName = $gameDetailsBeforeClaim['name'];
+                    $this->logger->debug("Restored game name from pre-claim data: " . $this->gameName);
+                }
+                if (is_null($this->gameUrl) && !is_null($gameDetailsBeforeClaim['url'])) {
+                    $this->gameUrl = $gameDetailsBeforeClaim['url'];
+                    $this->logger->debug("Restored game URL from pre-claim data: " . $this->gameUrl);
+                }
+                if (is_null($this->gameImage) && !is_null($gameDetailsBeforeClaim['image'])) {
+                    $this->gameImage = $gameDetailsBeforeClaim['image'];
+                    $this->logger->debug("Restored game image from pre-claim data: " . $this->gameImage);
+                }
+
+                // Only try to re-fetch if we still have missing critical details
+                if (is_null($this->gameName)) {
+                    $this->logger->debug("Game name still missing after restore, attempting re-fetch.");
                     $this->checkGiveawayDetailsFromPage();
                     $statusData = $this->getGiveawayStatusData();
                     $this->parseGameDetailsFromApiData($statusData);
@@ -172,7 +192,6 @@ class GogClaimer
         }
     }
 
-
     private function verifyLogin(): bool
     {
         $this->logger->debug("Verifying login status via account endpoint");
@@ -204,9 +223,6 @@ class GogClaimer
         }
     }
 
-    /**
-     * Helper function to check for essential GOG cookies after login attempt.
-     */
     private function checkEssentialCookies(): void
     {
         $essentialCookies = ['gog_lc', 'gog_session'];
@@ -230,10 +246,6 @@ class GogClaimer
         }
     }
 
-
-    /**
-     * Tries to parse game details from the main GOG page HTML.
-     */
     private function checkGiveawayDetailsFromPage(): void
     {
         $this->logger->debug("Checking GOG main page HTML for giveaway details.");
@@ -295,9 +307,6 @@ class GogClaimer
         }
     }
 
-    /**
-     * Fetches and returns the data from the giveaway status API. Returns null on error.
-     */
     private function getGiveawayStatusData(): ?array
     {
         $this->logger->debug("Fetching giveaway status API data");
@@ -329,9 +338,6 @@ class GogClaimer
         }
     }
 
-    /**
-     * Parses game details from API data array, filling missing properties.
-     */
     private function parseGameDetailsFromApiData(?array $data): void
     {
         if (is_null($data)) return;
@@ -353,7 +359,6 @@ class GogClaimer
             $this->logger->debug("Got game URL from API: " . $this->gameUrl);
         }
     }
-
 
     private function checkGiveaway(): bool
     {
@@ -394,7 +399,6 @@ class GogClaimer
             return false;
         }
     }
-
 
     private function claimGiveaway(): bool
     {
